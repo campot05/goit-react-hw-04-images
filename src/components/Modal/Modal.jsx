@@ -8,7 +8,6 @@ function Modal({ closeModal, children }) {
     const handleCloseModal = e => {
       if (e.code === 'Escape') {
         closeModal();
-        console.log('escape');
       }
     };
 
