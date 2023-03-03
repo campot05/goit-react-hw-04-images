@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import cn from 'classnames';
 import { Notify } from 'notiflix';
 import { fetchImg } from 'components/services/api';
@@ -8,91 +8,94 @@ import css from './ImageGallery.module.css';
 import Button from 'components/Button';
 import Modal from 'components/Modal';
 
-export class ImageGallery extends Component {
-  state = {
-    hits: null,
-    loading: false,
-    total: 0,
-    showModal: false,
-    largeUrl: '',
-  };
-  page = 1;
-  async componentDidUpdate(prevProps, prevState) {
-    if (prevProps.query !== this.props.query) {
-      this.setState({ loading: true, hits: null, total: 0 });
-      this.page = 1;
-      const data = await fetchImg(this.props.query, this.page);
-      this.setState({
-        loading: false,
-        hits: data.hits,
-        total: data.totalHits,
-      });
+export function ImageGallery({ query }) {
+  const [hits, setHits] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [largeUrl, setLargeUrl] = useState('');
+  const [page, setPage] = useState(1);
 
-      if (data.total === 0) {
-        return Notify.failure(`No results were found for ${this.props.query}`);
-      }
+  const onClickImg = url => {
+    setLargeUrl(url);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+  };
+
+  useEffect(() => {
+    if (page === 1) {
+      return;
     }
-  }
+    const getFetch = async () => {
+      setLoading(true);
+      const data = await fetchImg(query, page);
+      setHits(prev => [...prev, ...data.hits]);
+      setLoading(false);
+    };
+    getFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
-  clickLoadMore = async () => {
-    this.setState({ loading: true });
-    this.page += 1;
-    const data = await fetchImg(this.props.query, this.page);
-    this.setState(prev => ({
-      hits: [...prev.hits, ...data.hits],
-      loading: false,
-    }));
+  useEffect(() => {
+    if (query === '') {
+      return;
+    }
+    setPage(1);
+    setLoading(true);
+    setHits(null);
+    setTotal(0);
+    const getFetch = async () => {
+      const data = await fetchImg(query, 1);
+      setLoading(false);
+      setHits(data.hits);
+      setTotal(data.totalHits);
+      if (data.total === 0) {
+        return Notify.failure(`No results were found for ${query}`);
+      }
+    };
+    getFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const loadMore = () => {
+    setPage(prev => prev + 1);
   };
 
-  onShowModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
-  };
-
-  onClickImg = url => {
-    this.setState({ largeUrl: url, showModal: true });
-  };
-
-  closeModal = () => {
-    this.setState({ showModal: false });
-  };
-
-  render() {
-    const { hits, total, loading, showModal, largeUrl } = this.state;
-    return (
-      <>
-        {loading && <MutatingDots wrapperClass={css.spinner} />}
-        {hits && (
-          <ul
-            className={cn(css.ImageGallery, {
-              [css.ImageGalleryOverflow]: showModal,
-            })}
-          >
-            {hits.map(({ id, webformatURL, tags, largeImageURL }) => {
-              return (
-                <ImageGalleryItem
-                  key={id}
-                  url={webformatURL}
-                  alt={tags}
-                  onClick={this.onClickImg}
-                  largeImageURL={largeImageURL}
-                />
-              );
-            })}
-          </ul>
-        )}
-        {total > 12 * this.page && (
-          <Button clickLoadMore={this.clickLoadMore}>
-            {loading ? 'Loading...' : 'Load more'}
-          </Button>
-        )}
-        {showModal && (
-          <Modal closeModal={this.closeModal}>
-            <img src={largeUrl} alt="items" className={css.ModalImg} />
-          </Modal>
-        )}
-      </>
-    );
-  }
+  return (
+    <>
+      {loading && <MutatingDots wrapperClass={css.spinner} />}
+      {hits && (
+        <ul
+          className={cn(css.ImageGallery, {
+            [css.ImageGalleryOverflow]: showModal,
+          })}
+        >
+          {hits.map(({ id, webformatURL, tags, largeImageURL }) => {
+            return (
+              <ImageGalleryItem
+                key={id}
+                url={webformatURL}
+                alt={tags}
+                onClick={onClickImg}
+                largeImageURL={largeImageURL}
+              />
+            );
+          })}
+        </ul>
+      )}
+      {total > 12 * page && (
+        <Button clickLoadMore={loadMore}>
+          {loading ? 'Loading...' : 'Load more'}
+        </Button>
+      )}
+      {showModal && (
+        <Modal closeModal={closeModal}>
+          <img src={largeUrl} alt="items" className={css.ModalImg} />
+        </Modal>
+      )}
+    </>
+  );
 }
